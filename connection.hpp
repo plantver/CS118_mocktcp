@@ -16,10 +16,11 @@ class Connection{
 	int myport;
 	struct sockaddr_in remaddr;
 	socklen_t remaddrlen = sizeof(remaddr); // NEED TO INITIALIZE!!!!!!
+	int WINDOW = 0;
 
 	const int HEADSIZE = 4;
-	const int PLSIZE = 2048; // payload length
-	const int DGBSIZE = 2400;
+	const int PLSIZE = 996; // payload length
+	const int DGBSIZE = 1024;
 
 	void setsocket(){
 		if ((socketfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -89,7 +90,7 @@ public:
 	//returns the length of the payload inside
 	int getdg(char* buffer);
 
-	int request(char* filename, int len);
+	int request(char* filename, int len, int windowsize);
 
 	//returns a stack malloced char* containning the filename
 	//need tobe freed later, or just forget about it

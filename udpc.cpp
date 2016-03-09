@@ -22,11 +22,12 @@ int getfile(Connection& con){
 int client( char* server, int servportno ){
 	Connection con(server, servportno);
 	char* mes = "t.txt";
-	con.request(mes, strlen(mes));
+    // send name of request file, along with the window size
+	con.request(mes, strlen(mes), 5000);
 	(void)getfile(con);
 }
 
-int sendfile( Connection& con, char* filename){
+int sendfile( Connection& con, char* filename){ //con should always be passed by reference
 	int file_fd;
 	if(( file_fd = open(filename,O_RDONLY)) == -1) {
         printf("ERROR cannot open resquested file");
