@@ -15,7 +15,11 @@ class Connection{
 	struct sockaddr_in myaddr;
 	int myport;
 	struct sockaddr_in remaddr;
-	socklen_t remaddrlen;
+	socklen_t remaddrlen = sizeof(remaddr); // NEED TO INITIALIZE!!!!!!
+
+	const int HEADSIZE = 4;
+	const int PLSIZE = 2048; // payload length
+	const int DGBSIZE = 2400;
 
 	void setsocket(){
 		if ((socketfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -30,7 +34,7 @@ class Connection{
 
 	int16_t getseqnum(char* dg){return ((int16_t*)dg)[1];}
 
-	char* getmessage(char* dg){return dg + 4; }
+	char* getmessage(char* dg){return dg + HEADSIZE; }
 
 public:
 	Connection(){
@@ -75,11 +79,28 @@ public:
     	remaddr.sin_port = htons(remport);
 	}
 
-
+	//send header + payload/message
+	// mlen has to be less than PLSIZE
 	int senddg(char type, int num, char* message, int mlen);
 
+	//receive the entire packet into the given buffer
+	//buffer has to be as least than DGSIZE + 10, just in case
+	//an zero is appended
+	//returns the length of the payload inside
+	int getdg(char* buffer);
+
+	int request(char* filename, int len);
+
+	//returns a stack malloced char* containning the filename
+	//need tobe freed later, or just forget about it
 	char* waitforreq(); //server waits for request
 
+	//read til the end or as much as the buffer can hold
+	//returns then number of bytes read into the buffer
+	int read(char* buffer, int len);
+
+	// write the entirebuffer in datagrams.
+	int write(char* buffer, int len);
 };
 
 
