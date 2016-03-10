@@ -13,8 +13,8 @@
 // the protocal
 #include "connection.hpp"
 
-int client( char* server, int servportno, char* filename){
-	Connection con(server, servportno);
+int client( char* server, int servportno, char* filename, float pl, float pc){
+	Connection con(server, servportno, pl, pc, 'C');
     // send name of request file
 	con.request(filename, strlen(filename));
 	
@@ -25,8 +25,8 @@ int client( char* server, int servportno, char* filename){
     fwrite(buffer, 1, flen, fp);
 }
 
-int server(int portno){
-	Connection con(portno, 5000);
+int server(int portno, int windowsize, float pl, float pc){
+	Connection con(portno, windowsize, pl, pc);
 	char* request = con.waitforreq();
 
     int file_fd;
@@ -45,14 +45,13 @@ int server(int portno){
 
 int main(int argc, char *argv[]){
 	//open up server
-	int portno;
 	if (*argv[1] == 's' ||*argv[1] == 'S') { 
-        portno = atoi(argv[2]);
-        server(portno);
+                //  port       window                 pl       pc
+        server(atoi(argv[2]), atoi(argv[3]), atof(argv[4]), atof(argv[5]));
     }
     else if (*argv[1] == 'r' ||*argv[1] == 'R') { //open up client
-    	portno = atoi(argv[3]);
-    	client( argv[2], portno, argv[4]);
+                //servname  port         filename     pl        pc
+    	client( argv[2], atoi(argv[3]), argv[4], atof(argv[5]), atof(argv[6]));
     }
     else{
     	printf("Unsupported arguments \n");

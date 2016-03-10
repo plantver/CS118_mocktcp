@@ -19,6 +19,9 @@ class Connection{
 	socklen_t remaddrlen = sizeof(remaddr); // NEED TO INITIALIZE!!!!!!
 	int WINDOW;
 
+	float PL = 0.1;
+	float PC = 0.1;
+
 	const int HEADSIZE = 4;
 	const int PLSIZE = 996; // payload length
 	const int DGBSIZE = 1024;
@@ -47,9 +50,22 @@ class Connection{
 
 	char* getmessage(char* dg){return dg + HEADSIZE; }
 
+	bool islost(){
+		if(PL > ((double)rand() / (double)RAND_MAX))
+			return true;
+		return false;
+	}
+
+	bool iscorrupt(){
+		if(PC > ((double)rand() / (double)RAND_MAX))
+			return true;
+		return false;
+	}
+
 public:
-	Connection( int myportno, int windowsize){ // serverside connection init
-		//set windowsize
+	Connection( int myportno, int windowsize, float pl, float pc){ // serverside connection init
+		PL = pl;
+		PC = pc;
 		WINDOW = windowsize/(HEADSIZE + PLSIZE);
 
 		memset(&myaddr, 0, sizeof(myaddr));
@@ -60,7 +76,9 @@ public:
 		this->setsocket( 20000 );
 	}
 
-	Connection( char* remaddrname, int remport){ //clientside  connection init
+	Connection( char* remaddrname, int remport, float pl, float pc, char c){ //clientside  connection init
+		PL = pl;
+		PC = pc;
 		//set mysocket
 		memset(&myaddr, 0, sizeof(myaddr));
 		myaddr.sin_family = AF_INET;

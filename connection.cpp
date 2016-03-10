@@ -91,6 +91,9 @@ int Connection::write(char* base, int len){
 
 				if(nextnum - basenum + 1 < WINDOW){
 					nextnum++;
+					if(nextnum == topseq + 1){
+						nextnum = basenum;
+					}
 				}
 				else{
 					printf("Flowcontrol. next %d, base %d, window %d Retranmitting unacked packets ...\n", nextnum, basenum, WINDOW);
@@ -117,21 +120,29 @@ int Connection::write(char* base, int len){
 			}
 		}
 
-		//set the corresponding sequence, "according to" the ack
-		if(len - (PLSIZE*nextnum) >= PLSIZE){
-			if(nextnum == 3 && test == 0){
-				test = 1;
-				continue;
+		//sending..
+		if(!islost()){
+			char type = 'D';
+			if(iscorrupt()){
+				type = 'C';
 			}
-			senddg('D',nextnum, base + (PLSIZE*nextnum), PLSIZE); //!MUST BE PLSIZE UNLESS END OF BUFFER!
+			if(len - (PLSIZE*nextnum) >= PLSIZE){
+				senddg( type, nextnum, base + (PLSIZE*nextnum), PLSIZE); //!MUST BE PLSIZE UNLESS END OF BUFFER!
+			}
+			else{
+				senddg( type, nextnum, base + (PLSIZE*nextnum), len - (PLSIZE*nextnum));
+			}
 		}
 		else{
-			senddg('D',nextnum, base + (PLSIZE*nextnum), len - (PLSIZE*nextnum));
+			printf("LOST ...\n");
 		}
 
 		//flow control
 		if(nextnum - basenum + 1 < WINDOW){
 			nextnum++;
+			if(nextnum == topseq + 1){
+				nextnum = basenum;
+			}
 		}
 		else{
 			printf("Flowcontrol. next %d, base %d, window %d Retranmitting unacked packets ...\n", nextnum, basenum, WINDOW);
@@ -164,6 +175,7 @@ int Connection::read(char* base, int len){
 	char* ackarr = (char*)malloc(topseq + 1);
 	memset(ackarr, 0, topseq + 1);
 
+
 	int recvflen = 0, seqnum = 0, basenum = 0, pllen = 0;
 	while(1){
 		pllen = recvdg(dgbuf);
@@ -172,6 +184,13 @@ int Connection::read(char* base, int len){
 			senddg('A', basenum, dgbuf, 0);
 			continue;
 		}
+		if(gettype(dgbuf) == 'C'){
+			printf("CORRUPT PACKET...\n");
+			senddg('A', basenum, dgbuf, 0);
+			continue;
+		}
+
+
 		seqnum = getseqnum(dgbuf);
 		if(seqnum >= basenum){
 			//copy message into the base buffer
@@ -185,6 +204,10 @@ int Connection::read(char* base, int len){
 		basenum = getnextbase(ackarr, basenum, topseq);
 
 		// ack for the next packet, seqnum = next packet seqnum
+		if(islost() || iscorrupt()){
+			printf("ACK LOST/CORRUPTED ...\n");
+			continue;
+		}
 		if(basenum > topseq ){
 			senddg('A', basenum, dgbuf, 0);
 			break;
