@@ -23,14 +23,14 @@ class Connection{
 	const int PLSIZE = 996; // payload length
 	const int DGBSIZE = 1024;
 
-	void setsocket(){
+	void setsocket( int to){
 		if ((socketfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 			perror("cannot create socket\n");
 		}
 
 		struct timeval timeout;
 		timeout.tv_sec = 0;
-		timeout.tv_usec = 800000;
+		timeout.tv_usec = to;
 		if (setsockopt (socketfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
                 sizeof(timeout)) < 0){
         	perror("setsockopt failed\n");
@@ -48,18 +48,6 @@ class Connection{
 	char* getmessage(char* dg){return dg + HEADSIZE; }
 
 public:
-	Connection(){
-		memset(&myaddr, 0, sizeof(myaddr));
-		myaddr.sin_family = AF_INET;
-		myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-	}
-
-	void setmyport(int portno ){
-		myport = portno;
-		myaddr.sin_port = htons(portno); //0 means any, in case of client
-		this->setsocket();
-	}
-
 	Connection( int myportno, int windowsize){ // serverside connection init
 		//set windowsize
 		WINDOW = windowsize/(HEADSIZE + PLSIZE);
@@ -69,7 +57,7 @@ public:
 		myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 		myaddr.sin_port = htons(myportno); //0 means any, in case of client
 		myport = myportno;
-		this->setsocket();
+		this->setsocket( 20000 );
 	}
 
 	Connection( char* remaddrname, int remport){ //clientside  connection init
@@ -79,7 +67,7 @@ public:
 		myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 		myaddr.sin_port = htons(0); //any port?
 		myport = 0; //not zero!
-		this->setsocket();
+		this->setsocket( 500000 );
 
 		// set remote socket
 		struct hostent *rem;

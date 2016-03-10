@@ -2,7 +2,7 @@
 
 int Connection::senddg(char type, int num, char* message, int mlen){
 	int dgsize = HEADSIZE + mlen;
-	char* dg = (char*)malloc(dgsize);
+	char dg[DGBSIZE];
 	dg[1] = type;
 	((int16_t*)dg)[1] = (int16_t)num;
 	memcpy(dg + HEADSIZE, message, mlen);
@@ -21,7 +21,6 @@ int Connection::senddg(char type, int num, char* message, int mlen){
 	else{
 		printf("SENT>> packet type %c, seq. num %d, bytes %d\n", type, num, mlen + HEADSIZE);
 	}
-	free(dg);
 	return 0;
 }
 
@@ -76,6 +75,7 @@ int Connection::write(char* base, int len){
 	char* ackarr = (char*)malloc(topseq + 1);
 	memset(ackarr, 0, topseq + 1);
 
+	int test = 0;
 	int basenum = 0, nextnum = 0, acknum = 0, prevack = 0, sacounter = 0, start = 0;
 	while(1){
 		if( recvdg(dgbuf) < 0 ){
@@ -101,7 +101,6 @@ int Connection::write(char* base, int len){
 		}
 
 		acknum = getseqnum(dgbuf);
-		printf("acknum  %d\n", acknum);
 		if(acknum == -1){
 			start = 1;
 		}
@@ -120,6 +119,10 @@ int Connection::write(char* base, int len){
 
 		//set the corresponding sequence, "according to" the ack
 		if(len - (PLSIZE*nextnum) >= PLSIZE){
+			if(nextnum == 3 && test == 0){
+				test = 1;
+				continue;
+			}
 			senddg('D',nextnum, base + (PLSIZE*nextnum), PLSIZE); //!MUST BE PLSIZE UNLESS END OF BUFFER!
 		}
 		else{
@@ -183,8 +186,6 @@ int Connection::read(char* base, int len){
 
 		// ack for the next packet, seqnum = next packet seqnum
 		if(basenum > topseq ){
-			printf("topseq %d\n", topseq);
-			printf("basenum %d\n", basenum);
 			senddg('A', basenum, dgbuf, 0);
 			break;
 		}
