@@ -13,25 +13,22 @@
 // the protocal
 #include "connection.hpp"
 
-int getfile(Connection& con){
-	int BUFSIZE = 99999;
-	char *buffer = (char*)malloc(BUFSIZE);
-	con.read(buffer, BUFSIZE);
-}
-
-int client( char* server, int servportno ){
+int client( char* server, int servportno, char* filename){
 	Connection con(server, servportno);
-	char* mes = "t.txt";
-    // send name of request file, along with the window size
-	con.request(mes, strlen(mes), 5000);
-	(void)getfile(con);
+    // send name of request file
+	con.request(filename, strlen(filename));
+	
+    int BUFSIZE = 10000000; //10 MB buffer
+    char *buffer = (char*)malloc(BUFSIZE);
+    int flen = con.read(buffer, BUFSIZE);
+    FILE* fp = fopen( "recv.txt", "w+" );
+    fwrite(buffer, 1, flen, fp);
 }
 
 int sendfile( Connection& con, char* filename){ //con should always be passed by reference
 	int file_fd;
 	if(( file_fd = open(filename,O_RDONLY)) == -1) {
-        printf("ERROR cannot open resquested file");
-        exit(1);
+        perror("Cannot open request file\n"); exit(1);
     }
     int filelen = lseek(file_fd, (off_t)0, SEEK_END);
     (void)lseek(file_fd, (off_t)0, SEEK_SET); /* reposition file offset to start of file */
@@ -43,11 +40,8 @@ int sendfile( Connection& con, char* filename){ //con should always be passed by
 }
 
 int server(int portno){
-	Connection con(portno);
+	Connection con(portno, 5000);
 	char* request = con.waitforreq();
-	//debug
-	char* test = "debugging";
-	//con.senddg('T', 0, test, strlen(test));
 	(void)sendfile(con, request);
 }
 
@@ -61,7 +55,7 @@ int main(int argc, char *argv[]){
     }
     else if (*argv[1] == 'r' ||*argv[1] == 'R') { //open up client
     	portno = atoi(argv[3]);
-    	client( argv[2], portno );
+    	client( argv[2], portno, argv[4]);
     }
     else{
     	printf("Unsupported arguments \n");

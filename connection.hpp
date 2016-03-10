@@ -8,6 +8,7 @@
 #include <netinet/in.h>  // constants and structures needed for internet domain addresses, e.g. sockaddr_in
 #include <netdb.h>      // define structures like hostent
 #include <string.h>	/* for memcpy */
+#include <sys/time.h>
 
 
 class Connection{
@@ -50,7 +51,10 @@ public:
 		this->setsocket();
 	}
 
-	Connection( int myportno ){ // serverside connection init
+	Connection( int myportno, int windowsize){ // serverside connection init
+		//set windowsize
+		WINDOW = windowsize/(HEADSIZE + PLSIZE);
+
 		memset(&myaddr, 0, sizeof(myaddr));
 		myaddr.sin_family = AF_INET;
 		myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -59,7 +63,7 @@ public:
 		this->setsocket();
 	}
 
-	Connection( char* remaddrname, int remport ){ //clientside  connection init
+	Connection( char* remaddrname, int remport){ //clientside  connection init
 		//set mysocket
 		memset(&myaddr, 0, sizeof(myaddr));
 		myaddr.sin_family = AF_INET;
@@ -88,9 +92,9 @@ public:
 	//buffer has to be as least than DGSIZE + 10, just in case
 	//an zero is appended
 	//returns the length of the payload inside
-	int getdg(char* buffer);
+	int recvdg(char* buffer);
 
-	int request(char* filename, int len, int windowsize);
+	int request(char* filename, int len);
 
 	//returns a stack malloced char* containning the filename
 	//need tobe freed later, or just forget about it
