@@ -134,7 +134,7 @@ int Connection::write(char* base, int len){
 			}
 		}
 		else{
-			printf("LOST ...\n");
+			printf("LOST ...%d\n", nextnum);
 		}
 
 		//flow control
@@ -205,7 +205,7 @@ int Connection::read(char* base, int len){
 
 		// ack for the next packet, seqnum = next packet seqnum
 		if(islost() || iscorrupt()){
-			printf("ACK LOST/CORRUPTED ...\n");
+			printf("ACK LOST/CORRUPTED ... %d\n", basenum);
 			continue;
 		}
 		if(basenum > topseq ){

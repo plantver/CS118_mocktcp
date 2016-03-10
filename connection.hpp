@@ -73,7 +73,7 @@ public:
 		myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
 		myaddr.sin_port = htons(myportno); //0 means any, in case of client
 		myport = myportno;
-		this->setsocket( 20000 );
+		this->setsocket( 200000 );
 	}
 
 	Connection( char* remaddrname, int remport, float pl, float pc, char c){ //clientside  connection init
