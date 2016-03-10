@@ -25,24 +25,21 @@ int client( char* server, int servportno, char* filename){
     fwrite(buffer, 1, flen, fp);
 }
 
-int sendfile( Connection& con, char* filename){ //con should always be passed by reference
-	int file_fd;
-	if(( file_fd = open(filename,O_RDONLY)) == -1) {
+int server(int portno){
+	Connection con(portno, 5000);
+	char* request = con.waitforreq();
+
+    int file_fd;
+    if(( file_fd = open(request,O_RDONLY)) == -1) {
         perror("Cannot open request file\n"); exit(1);
     }
     int filelen = lseek(file_fd, (off_t)0, SEEK_END);
     (void)lseek(file_fd, (off_t)0, SEEK_SET); /* reposition file offset to start of file */
 
     // send file
-   	char *buffer = (char*)malloc(filelen);
-   	(void)read(file_fd, buffer, filelen);
-   	con.write(buffer, filelen);
-}
-
-int server(int portno){
-	Connection con(portno, 5000);
-	char* request = con.waitforreq();
-	(void)sendfile(con, request);
+    char *buffer = (char*)malloc(filelen);
+    (void)read(file_fd, buffer, filelen);
+    con.write(buffer, filelen);
 }
 
 

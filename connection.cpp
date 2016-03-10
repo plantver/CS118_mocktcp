@@ -26,18 +26,22 @@ int Connection::senddg(char type, int num, char* message, int mlen){
 }
 
 int Connection::recvdg(char* buffer){
-	int recvlen = recvfrom( socketfd, buffer, DGBSIZE, 0, (struct sockaddr *)&remaddr, &remaddrlen );
-	buffer[recvlen] = 0; //if want to read as strings
-	if(gettype(buffer) == 'D'){
-		printf("RECV<< data, seq. num %d, bytes %d\n", getseqnum(buffer), recvlen);
+	int recvlen = 0;
+	if ((recvlen = recvfrom( socketfd, buffer, DGBSIZE, 0, 
+		(struct sockaddr *)&remaddr, &remaddrlen)) > 0){
+		buffer[recvlen] = 0; //if want to read as strings
+		if(gettype(buffer) == 'D'){
+			printf("RECV<< data, seq. num %d, bytes %d\n", getseqnum(buffer), recvlen);
+		}
+		else if(gettype(buffer) == 'A'){
+			printf("RECV<< ACK, seq. num %d, bytes %d\n", getseqnum(buffer), recvlen);
+		}
+		else{
+			printf("RECV<< packet type %c, seq. num %d, bytes %d\n", gettype(buffer), getseqnum(buffer), recvlen);
+		}
+		return recvlen - HEADSIZE;
 	}
-	else if(gettype(buffer) == 'A'){
-		printf("RECV<< ACK, seq. num %d, bytes %d\n", getseqnum(buffer), recvlen);
-	}
-	else{
-		printf("RECV<< packet type %c, seq. num %d, bytes %d\n", gettype(buffer), getseqnum(buffer), recvlen);
-	}
-	return recvlen - HEADSIZE;
+	return -1;
 }
 
 int Connection::request(char* filename, int len){
@@ -50,14 +54,13 @@ char* Connection::waitforreq(){
 	printf("Waiting on port %d\n", myport);
 	char* buf = (char*)malloc(DGBSIZE); //mem leak careful
 	while(1){
-		int meslen = recvdg(buf);
-	    if(gettype(buf) == 'R'){
-	    	//set self WINDOW
-	    	WINDOW = getseqnum(buf);
-		    return getmessage(buf);
-		}
-		else{
-			printf("Received non-request packet, keep waiting...\n" );
+		if(recvdg(buf) > 0){
+	    	if(gettype(buf) == 'R'){
+			    return getmessage(buf);
+			}
+			else{
+				printf("Received non-request packet, keep waiting...\n" );
+			}
 		}
 	}
 }
@@ -73,15 +76,35 @@ int Connection::write(char* base, int len){
 	char* ackarr = (char*)malloc(topseq + 1);
 	memset(ackarr, 0, topseq + 1);
 
-	int basenum = 0;
-	int nextnum = 0;
-	int acknum = 0;
-	int prevack = 0;
-	int sacounter = 0;
+	int basenum = 0, nextnum = 0, acknum = 0, prevack = 0, sacounter = 0, start = 0;
 	while(1){
-		(void)recvdg(dgbuf);
+		if( recvdg(dgbuf) < 0 ){
+			if (start = 1){
+				printf("TIMEOUT...\n");
+				
+				if(len - (PLSIZE*nextnum) >= PLSIZE){
+					senddg('D',nextnum, base + (PLSIZE*nextnum), PLSIZE); //!MUST BE PLSIZE UNLESS END OF BUFFER!
+				}
+				else{
+					senddg('D',nextnum, base + (PLSIZE*nextnum), len - (PLSIZE*nextnum));
+				}
+
+				if(nextnum - basenum + 1 < WINDOW){
+					nextnum++;
+				}
+				else{
+					printf("Flowcontrol. next %d, base %d, window %d Retranmitting unacked packets ...\n", nextnum, basenum, WINDOW);
+					nextnum = basenum;
+				}
+			}
+			continue;
+		}
 
 		acknum = getseqnum(dgbuf);
+		printf("acknum  %d\n", acknum);
+		if(acknum == -1){
+			start = 1;
+		}
 		if(acknum == topseq + 1){
 			break;
 		}
@@ -95,8 +118,6 @@ int Connection::write(char* base, int len){
 			}
 		}
 
-
-
 		//set the corresponding sequence, "according to" the ack
 		if(len - (PLSIZE*nextnum) >= PLSIZE){
 			senddg('D',nextnum, base + (PLSIZE*nextnum), PLSIZE); //!MUST BE PLSIZE UNLESS END OF BUFFER!
@@ -106,11 +127,14 @@ int Connection::write(char* base, int len){
 		}
 
 		//flow control
-		if(nextnum - basenum < WINDOW - 1){
+		if(nextnum - basenum + 1 < WINDOW){
 			nextnum++;
 		}
+		else{
+			printf("Flowcontrol. next %d, base %d, window %d Retranmitting unacked packets ...\n", nextnum, basenum, WINDOW);
+			nextnum = basenum;
+		}
 	}
-
 
 	return 0;
 }
@@ -128,21 +152,23 @@ int getnextbase(char* arr, int cur, int top){
 
 int Connection::read(char* base, int len){
 	char dgbuf[DGBSIZE];
-
 	//get top seqnumber, in the seqnum of the transmission initializer packet
 	printf("Waiting for tranmission start...\n");
-	(void)recvdg(dgbuf);
-	senddg('A', -1, dgbuf, 0); // -1 is just a number not in the range of seqnum
+	while(recvdg(dgbuf) < 0){;}
+	//ACK the start of transmisson, this packet cannot be lost
+	senddg('A', -1, dgbuf, 0);
 	int topseq = getseqnum(dgbuf);
 	char* ackarr = (char*)malloc(topseq + 1);
 	memset(ackarr, 0, topseq + 1);
-	
-	int recvflen = 0;
-	int seqnum = 0;
-	int basenum = 0;
-	int pllen = 0;
+
+	int recvflen = 0, seqnum = 0, basenum = 0, pllen = 0;
 	while(1){
 		pllen = recvdg(dgbuf);
+		if(pllen < 0){
+			printf("TIMEOUT...\n");
+			senddg('A', basenum, dgbuf, 0);
+			continue;
+		}
 		seqnum = getseqnum(dgbuf);
 		if(seqnum >= basenum){
 			//copy message into the base buffer
@@ -157,6 +183,8 @@ int Connection::read(char* base, int len){
 
 		// ack for the next packet, seqnum = next packet seqnum
 		if(basenum > topseq ){
+			printf("topseq %d\n", topseq);
+			printf("basenum %d\n", basenum);
 			senddg('A', basenum, dgbuf, 0);
 			break;
 		}

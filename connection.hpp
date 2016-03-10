@@ -17,7 +17,7 @@ class Connection{
 	int myport;
 	struct sockaddr_in remaddr;
 	socklen_t remaddrlen = sizeof(remaddr); // NEED TO INITIALIZE!!!!!!
-	int WINDOW = 0;
+	int WINDOW;
 
 	const int HEADSIZE = 4;
 	const int PLSIZE = 996; // payload length
@@ -25,10 +25,19 @@ class Connection{
 
 	void setsocket(){
 		if ((socketfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-			perror("cannot create socket");
+			perror("cannot create socket\n");
 		}
+
+		struct timeval timeout;
+		timeout.tv_sec = 0;
+		timeout.tv_usec = 800000;
+		if (setsockopt (socketfd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout,
+                sizeof(timeout)) < 0){
+        	perror("setsockopt failed\n");
+		}
+
 		if (bind(socketfd, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
-			perror("bind socket failed");
+			perror("bind socket failed\n");
 		}
 	}
 
